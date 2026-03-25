@@ -12,7 +12,7 @@ interface TagCache {
   get(file: string, mtime: number): Tag[] | null;
   set(file: string, mtime: number, tags: Tag[]): void;
   clear(): void;
-  close?(): void;
+  close(): void;
 }
 
 // SQLite cache implementation
@@ -90,12 +90,12 @@ class JsonFileTagCache implements TagCache {
     this.dirty = true;
   }
 
-  flush(): void {
+  private flush(): void {
     if (!this.dirty) return;
     const obj: Record<string, CacheEntry> = {};
     for (const [k, v] of this.data) obj[k] = v;
     const dir = dirname(this.filePath);
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    mkdirSync(dir, { recursive: true });
     atomicWrite(this.filePath, JSON.stringify(obj));
     this.dirty = false;
   }
@@ -115,7 +115,7 @@ export async function createTagCache(dataDir: string): Promise<TagCache> {
   const dbPath = join(dataDir, 'treesitter-cache', 'tags.db');
   const dbDir = dirname(dbPath);
 
-  if (!existsSync(dbDir)) mkdirSync(dbDir, { recursive: true });
+  mkdirSync(dbDir, { recursive: true });
 
   try {
     const { default: Database } = await import('better-sqlite3');

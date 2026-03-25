@@ -68,3 +68,12 @@ export function appendChange(
   const newContent = [metadata, '', ...contentLines].join('\n') + '\n';
   atomicWrite(changesPath, newContent);
 }
+
+export function appendCommitSummary(
+  projectDir: string,
+  hash: string,
+  subject: string,
+  domains: string[]
+): void {
+  appendChange(projectDir, `[commit:${hash}] ${subject}`, domains[0]);
+}

@@ -68,39 +68,58 @@ function parseIgnoreFile(filePath: string): string[] {
     .filter(l => l && !l.startsWith('#'));
 }
 
-function matchesIgnorePattern(relativePath: string, patterns: string[]): boolean {
-  const fwd = toForwardSlash(relativePath);
-  for (const pattern of patterns) {
-    // Simple glob matching: support * and leading/trailing **
-    const normalized = pattern.replace(/\\/g, '/');
-    // If pattern has no /, match basename
-    if (!normalized.includes('/')) {
-      const basename = fwd.split('/').pop() ?? '';
-      if (matchGlob(basename, normalized)) return true;
-    } else {
-      if (matchGlob(fwd, normalized) || matchGlob(fwd, '**/' + normalized)) return true;
-    }
-  }
-  return false;
-}
-
-function matchGlob(str: string, pattern: string): boolean {
+function compileGlob(pattern: string): RegExp | null {
   const regexStr = '^' + pattern
     .replace(/[.+^${}()|[\]\\]/g, '\\$&')
     .replace(/\*\*/g, '___DOUBLESTAR___')
     .replace(/\*/g, '[^/]*')
     .replace(/___DOUBLESTAR___/g, '.*') + '$';
   try {
-    return new RegExp(regexStr).test(str);
+    return new RegExp(regexStr);
   } catch {
-    return false;
+    return null;
   }
 }
 
+interface CompiledPattern {
+  hasSlash: boolean;
+  basenameRegex: RegExp | null;
+  fullRegex: RegExp | null;
+  prefixedRegex: RegExp | null;
+}
+
+function compileIgnorePatterns(patterns: string[]): CompiledPattern[] {
+  return patterns.map(pattern => {
+    const normalized = pattern.replace(/\\/g, '/');
+    const hasSlash = normalized.includes('/');
+    return {
+      hasSlash,
+      basenameRegex: hasSlash ? null : compileGlob(normalized),
+      fullRegex: hasSlash ? compileGlob(normalized) : null,
+      prefixedRegex: hasSlash ? compileGlob('**/' + normalized) : null,
+    };
+  });
+}
+
+function matchesIgnorePattern(relativePath: string, compiled: CompiledPattern[]): boolean {
+  const fwd = toForwardSlash(relativePath);
+  const basename = fwd.split('/').pop() ?? '';
+  for (const p of compiled) {
+    if (!p.hasSlash) {
+      if (p.basenameRegex?.test(basename)) return true;
+    } else {
+      if (p.fullRegex?.test(fwd) || p.prefixedRegex?.test(fwd)) return true;
+    }
+  }
+  return false;
+}
+
 export function discoverFiles(projectRoot: string): DiscoveredFile[] {
-  const gitignorePatterns = parseIgnoreFile(join(projectRoot, '.gitignore'));
-  const codetographignorePatterns = parseIgnoreFile(join(projectRoot, '.codetographignore'));
-  const ignorePatterns = [...gitignorePatterns, ...codetographignorePatterns];
+  const rawPatterns = [
+    ...parseIgnoreFile(join(projectRoot, '.gitignore')),
+    ...parseIgnoreFile(join(projectRoot, '.codetographignore')),
+  ];
+  const ignorePatterns = compileIgnorePatterns(rawPatterns);
 
   const results: DiscoveredFile[] = [];
 

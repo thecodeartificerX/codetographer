@@ -60,3 +60,18 @@ test('session-start outputs additionalContext when INDEX.md exists', () => {
     'additionalContext should include INDEX.md content'
   );
 });
+
+test('session-start re-injects context after /clear', () => {
+  const indexPath = join(tmpDir, 'docs', 'codetographer', 'INDEX.md');
+  writeFileSync(indexPath, `# Test Project Index\n\n## Domain Map\n`);
+
+  const result = spawnSync(process.execPath, [hookScript], {
+    input: JSON.stringify({ event: 'SessionStart', hook_event_name: 'clear' }),
+    env: { ...process.env, CLAUDE_PROJECT_DIR: tmpDir },
+    timeout: 5000,
+  });
+
+  assert.equal(result.status, 0);
+  const parsed = JSON.parse(result.stdout?.toString().trim());
+  assert.ok(parsed.hookSpecificOutput?.additionalContext, 'Should re-inject context after /clear');
+});

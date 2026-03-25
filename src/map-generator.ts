@@ -192,7 +192,7 @@ export async function generateMap(opts: MapGeneratorOptions): Promise<string> {
     tokenCount += blockTokens;
   }
 
-  if (typeof cache.close === 'function') cache.close();
+  cache.close();
 
   return renderAiderStyle(selectedEntries);
 }

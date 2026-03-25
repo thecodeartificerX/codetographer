@@ -52,3 +52,6 @@ export function appendChange(projectDir, filePath, domain, timestamp) {
     const newContent = [metadata, '', ...contentLines].join('\n') + '\n';
     atomicWrite(changesPath, newContent);
 }
+export function appendCommitSummary(projectDir, hash, subject, domains) {
+    appendChange(projectDir, `[commit:${hash}] ${subject}`, domains[0]);
+}

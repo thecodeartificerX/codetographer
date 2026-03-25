@@ -1,18 +1,16 @@
-import { existsSync, readFileSync, statSync, watchFile, mkdirSync, readdirSync } from 'fs';
+import { existsSync, readFileSync, statSync, watchFile, readdirSync } from 'fs';
 import { join } from 'path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { createTagCache } from '../hooks/dist/tag-cache.js';
-// Resolve project root from env
 const PROJECT_DIR = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
-const DATA_DIR = process.env['CLAUDE_PLUGIN_DATA'] ?? join(PROJECT_DIR, '.codetographer-data');
 const DOCS_DIR = join(PROJECT_DIR, 'docs', 'codetographer');
 const DOMAINS_DIR = join(DOCS_DIR, 'domains');
 const MAP_PATH = join(DOCS_DIR, 'map.md');
 const CHANGES_PATH = join(DOCS_DIR, 'changes.md');
 const INDEX_PATH = join(DOCS_DIR, 'INDEX.md');
 let allTags = [];
+let cachedDomainMap = null;
 let watchDebounce = null;
 function parseTagsFromMap() {
     if (!existsSync(MAP_PATH))
@@ -56,7 +54,7 @@ function watchMapFile() {
     watchFile(MAP_PATH, { interval: 500 }, () => {
         if (watchDebounce)
             clearTimeout(watchDebounce);
-        watchDebounce = setTimeout(() => parseTagsFromMap(), 500);
+        watchDebounce = setTimeout(() => { parseTagsFromMap(); cachedDomainMap = null; }, 500);
     });
 }
 function buildDomainMap() {
@@ -108,7 +106,9 @@ function searchTags(query, limit = 10) {
     const keywords = query.toLowerCase().split(/\s+/).filter(Boolean);
     if (!keywords.length)
         return [];
-    const domainMap = buildDomainMap();
+    if (!cachedDomainMap)
+        cachedDomainMap = buildDomainMap();
+    const domainMap = cachedDomainMap;
     const results = [];
     for (const tag of allTags) {
         if (tag.kind !== 'def')
@@ -159,13 +159,6 @@ function listDomains() {
     }
 }
 async function main() {
-    if (!existsSync(DATA_DIR))
-        mkdirSync(DATA_DIR, { recursive: true });
-    // Initialize cache (just to ensure it's set up; we mainly use map.md for search)
-    try {
-        await createTagCache(DATA_DIR);
-    }
-    catch { /* ignore */ }
     parseTagsFromMap();
     watchMapFile();
     const server = new McpServer({ name: 'codetographer', version: '1.0.0' });

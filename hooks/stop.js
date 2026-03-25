@@ -39,47 +39,39 @@ function updateRecentActivity(indexPath, changes) {
         const sectionIdx = content.indexOf(section);
         const newSection = section + '\n\n' +
             changes.slice(-5).map(c => `- ${c}`).join('\n') + '\n';
+        let updated;
         if (sectionIdx >= 0) {
-            // Find end of section (next ## or end of file)
             const nextSection = content.indexOf('\n## ', sectionIdx + 1);
             if (nextSection >= 0) {
-                content = content.slice(0, sectionIdx) + newSection + '\n' + content.slice(nextSection);
+                updated = content.slice(0, sectionIdx) + newSection + '\n' + content.slice(nextSection);
             }
             else {
-                content = content.slice(0, sectionIdx) + newSection;
+                updated = content.slice(0, sectionIdx) + newSection;
             }
         }
         else {
-            content = content + '\n' + newSection;
+            updated = content + '\n' + newSection;
         }
-        atomicWrite(indexPath, content);
+        if (updated !== content) {
+            atomicWrite(indexPath, updated);
+        }
     }
     catch { /* ignore */ }
 }
 async function main() {
-    try {
-        const stdin = readFileSync(0, 'utf-8');
-        JSON.parse(stdin);
-    }
-    catch { /* ignore */ }
     const projectDir = getProjectRoot();
     const dataDir = getDataDir();
     const docsDir = join(projectDir, 'docs', 'codetographer');
     const changesPath = join(docsDir, 'changes.md');
     const mapPath = join(docsDir, 'map.md');
     const indexPath = join(docsDir, 'INDEX.md');
-    // Only run if codetographer is initialized
     if (!existsSync(indexPath)) {
         process.exit(0);
     }
-    // Skip if no changes newer than map
     if (!hasChangesNewerThanMap(changesPath, mapPath)) {
         process.exit(0);
     }
-    // Ensure data dir exists
-    if (!existsSync(dataDir)) {
-        mkdirSync(dataDir, { recursive: true });
-    }
+    mkdirSync(dataDir, { recursive: true });
     try {
         const mapContent = await generateMap({
             projectRoot: projectDir,

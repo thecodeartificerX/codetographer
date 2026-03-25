@@ -6,7 +6,6 @@ import type { Tag } from './types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Map language → wasm filename in the grammar npm package
 const LANGUAGE_WASM_MAP: Record<string, { pkg: string; wasmFile: string }> = {
   typescript: { pkg: 'tree-sitter-typescript', wasmFile: 'tree-sitter-typescript.wasm' },
   javascript: { pkg: 'tree-sitter-javascript', wasmFile: 'tree-sitter-javascript.wasm' },
@@ -27,13 +26,17 @@ const LANGUAGE_WASM_MAP: Record<string, { pkg: string; wasmFile: string }> = {
 };
 
 let parserInitialized = false;
-import type { Parser as ParserType, Language as LanguageType } from 'web-tree-sitter';
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+import type { Parser as ParserType, Language as LanguageType, Query as QueryType } from 'web-tree-sitter';
 let ParserClass: typeof ParserType | null = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let parserInstance: ParserType | null = null;
 const languageCache = new Map<string, LanguageType | null>();
+const querySourceCache = new Map<string, string | null>();
+const queryCache = new Map<string, QueryType | null>();
 
-// Find project root by searching upwards for package.json
+// Computed once since __dirname never changes
+const projectRoot = findProjectRoot(__dirname);
+const queriesDir = join(projectRoot, 'scripts', 'queries');
+
 function findProjectRoot(startDir: string): string {
   let dir = startDir;
   for (let i = 0; i < 10; i++) {
@@ -42,37 +45,25 @@ function findProjectRoot(startDir: string): string {
     if (parent === dir) break;
     dir = parent;
   }
-  // Fallback: assume one or two levels up
   const up1 = join(startDir, '..');
   const up2 = join(startDir, '..', '..');
   return existsSync(join(up1, 'scripts', 'queries')) ? up1 : up2;
-}
-
-// Queries directory (relative to compiled output)
-function getQueriesDir(): string {
-  const projectRoot = findProjectRoot(__dirname);
-  return join(projectRoot, 'scripts', 'queries');
 }
 
 function resolveWasmPath(language: string): string | null {
   const info = LANGUAGE_WASM_MAP[language];
   if (!info) return null;
 
-  // Try multiple path conventions
   const require = createRequire(import.meta.url);
-  const projectRoot = findProjectRoot(__dirname);
 
   const candidates: Array<string | null> = [
-    // Standard: use require.resolve to find the package
     (() => {
       try {
         const pkgDir = dirname(require.resolve(`${info.pkg}/package.json`));
         return join(pkgDir, info.wasmFile);
       } catch { return null; }
     })(),
-    // Direct path from project root node_modules
     join(projectRoot, 'node_modules', info.pkg, info.wasmFile),
-    // CLAUDE_PLUGIN_DATA node_modules
     (() => {
       const pluginData = process.env['CLAUDE_PLUGIN_DATA'];
       return pluginData ? join(pluginData, 'node_modules', info.pkg, info.wasmFile) : null;
@@ -93,6 +84,14 @@ async function getParser(): Promise<typeof ParserType> {
     parserInitialized = true;
   }
   return ParserClass!;
+}
+
+async function getParserInstance(): Promise<ParserType> {
+  if (!parserInstance) {
+    const Parser = await getParser();
+    parserInstance = new Parser();
+  }
+  return parserInstance;
 }
 
 async function getLanguage(language: string): Promise<LanguageType | null> {
@@ -117,11 +116,36 @@ async function getLanguage(language: string): Promise<LanguageType | null> {
   }
 }
 
-function loadQueryFile(language: string): string | null {
-  const queriesDir = getQueriesDir();
+function loadQuerySource(language: string): string | null {
+  if (querySourceCache.has(language)) return querySourceCache.get(language) ?? null;
   const queryPath = join(queriesDir, language, 'tags.scm');
-  if (!existsSync(queryPath)) return null;
-  return readFileSync(queryPath, 'utf-8');
+  let source: string | null = null;
+  try {
+    source = readFileSync(queryPath, 'utf-8');
+  } catch { /* missing query file */ }
+  querySourceCache.set(language, source);
+  return source;
+}
+
+async function getQuery(language: string, lang: LanguageType): Promise<QueryType | null> {
+  if (queryCache.has(language)) return queryCache.get(language) ?? null;
+
+  const querySource = loadQuerySource(language);
+  if (!querySource) {
+    queryCache.set(language, null);
+    return null;
+  }
+
+  const { Query } = await import('web-tree-sitter');
+  try {
+    const query = new Query(lang, querySource);
+    queryCache.set(language, query);
+    return query;
+  } catch (err) {
+    process.stderr.write(`[codetographer] Warning: failed to compile query for ${language}: ${err}\n`);
+    queryCache.set(language, null);
+    return null;
+  }
 }
 
 export async function extractTags(
@@ -129,12 +153,14 @@ export async function extractTags(
   relativePath: string,
   language: string
 ): Promise<Tag[]> {
-  const Parser = await getParser();
+  // Parser.init() must run before Language.load()
+  await getParser();
+
   const lang = await getLanguage(language);
   if (!lang) return [];
 
-  const querySource = loadQueryFile(language);
-  if (!querySource) return [];
+  const query = await getQuery(language, lang);
+  if (!query) return [];
 
   let source: string;
   try {
@@ -144,17 +170,7 @@ export async function extractTags(
   }
 
   const lines = source.split('\n');
-
-  const { Query } = await import('web-tree-sitter');
-  let query;
-  try {
-    query = new Query(lang, querySource);
-  } catch (err) {
-    process.stderr.write(`[codetographer] Warning: failed to compile query for ${language}: ${err}\n`);
-    return [];
-  }
-
-  const parser = new Parser();
+  const parser = await getParserInstance();
   parser.setLanguage(lang);
 
   let tree;
@@ -170,7 +186,6 @@ export async function extractTags(
   const matches = query.matches(tree.rootNode);
 
   for (const match of matches) {
-    // Look for name capture (e.g. @name.definition.function) and outer capture
     let nameCapture = null;
     let outerCapture = null;
 
@@ -185,21 +200,18 @@ export async function extractTags(
     if (!nameCapture) continue;
 
     const node = nameCapture.node;
-    const line = node.startPosition.row + 1; // 1-based
+    const line = node.startPosition.row + 1;
     const name = node.text;
     const isRef = nameCapture.name.startsWith('name.reference.');
     const kind: 'def' | 'ref' = isRef ? 'ref' : 'def';
 
-    // Extract signature: the full line for defs
     let signature: string | undefined;
     let scope: string | undefined;
     if (kind === 'def') {
       const lineText = lines[line - 1]?.trim();
       signature = lineText;
 
-      // Try to extract scope from outer capture context
       if (outerCapture) {
-        // Walk up to find parent class/module
         let parent = node.parent;
         while (parent) {
           const type = parent.type;
@@ -207,7 +219,6 @@ export async function extractTags(
               type === 'class' || type === 'module' || type === 'impl_item' ||
               type === 'interface_declaration' || type === 'struct_item' ||
               type === 'trait_item' || type === 'class_definition') {
-            // Find the name of this parent
             for (let i = 0; i < parent.childCount; i++) {
               const child = parent.child(i);
               if (child && (child.type === 'identifier' || child.type === 'type_identifier')) {
