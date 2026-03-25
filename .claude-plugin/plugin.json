@@ -1,0 +1,15 @@
+{
+  "name": "codetographer",
+  "version": "1.0.0",
+  "description": "Three-tier codebase navigation via tree-sitter mapping, agentic exploration, and hook-powered auto-sync",
+  "author": { "name": "Sakib" },
+  "mcpServers": {
+    "codetographer": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/server.js"],
+      "env": {
+        "NODE_PATH": "${CLAUDE_PLUGIN_DATA}/node_modules"
+      }
+    }
+  }
+}
