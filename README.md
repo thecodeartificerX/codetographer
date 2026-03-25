@@ -1,98 +1,89 @@
 # Codetographer
 
-A Claude Code plugin that maps any codebase via tree-sitter + agentic exploration, generates a three-tier documentation structure, and auto-syncs via hooks. Eliminates blind codebase re-exploration and reduces token waste in multi-agent workflows.
+**Every AI coding session starts the same way: the agent greps around, reads random files, builds a mental model from scratch, and burns tokens doing work it already did yesterday.**
 
-## What It Does
+Codetographer fixes this. It's a Claude Code plugin that maps your codebase once, keeps the map alive automatically, and injects exactly the right context into every session and every subagent — before they read a single line of code.
 
-Codetographer creates three layers of documentation in `docs/codetographer/`:
+The result: agents start productive immediately, subagents get the domain knowledge they need without asking, and your token spend drops because nobody's re-exploring the same architecture for the hundredth time.
 
-- **INDEX.md** — routing table injected at every session start (< 200 lines). Maps files to domains so AI agents know where to look before reading a single line of code.
-- **domains/\*.md** — deep-dive docs per domain (API, auth, models, etc.) injected into subagents matching their task.
-- **map.md** — tree-sitter structural map with PageRank-ranked function/class signatures, auto-regenerated when sessions end.
+## How It Works
 
-## Installation
-
-```bash
-# Via Claude Code plugin manager
-claude plugin install codetographer
-
-# Or directly
-claude --plugin-dir ./codetographer
-```
-
-## Usage
-
-Run the wizard in any project:
+One command sets everything up:
 
 ```
 /codetographer
 ```
 
-The wizard will:
-1. Detect your project's framework and language
-2. Discover domain boundaries (confirm or adjust)
-3. Dispatch parallel AI agents to deeply explore each domain
-4. Generate the full documentation structure
-5. Set up auto-sync hooks
+The wizard scans your project, identifies logical domains (API, auth, models, etc.), dispatches parallel AI agents to deeply explore each one, and generates a three-tier documentation structure that stays in sync as your code evolves.
 
-## Generated Structure
+### The Three Tiers
 
 ```
 docs/codetographer/
-├── INDEX.md          ← injected at every session start
-├── map.md            ← tree-sitter structural map (auto-updated)
-├── changes.md        ← hook-maintained change log
-└── domains/
-    ├── api.md
-    ├── auth.md
-    └── models.md
+├── INDEX.md       ← routing table, injected at every session start
+├── domains/       ← deep-dive docs per domain, injected into subagents
+│   ├── api.md
+│   ├── auth.md
+│   └── models.md
+├── map.md         ← tree-sitter structural map, auto-regenerated
+└── changes.md     ← change log, maintained by hooks
 ```
 
-## Auto-Sync Hooks
+**Tier 1 (Hot):** `INDEX.md` is injected into context at session start, after `/clear`, and after compaction. Under 200 lines — a routing table, not an encyclopedia.
 
-Codetographer installs 6 hooks that run automatically:
+**Tier 2 (Warm):** When a subagent spawns, codetographer matches its task to a domain and injects that domain's doc. An agent working on auth gets auth context. An agent fixing an API endpoint gets API context. No wasted tokens on irrelevant domains.
 
-| Hook | Event | What it does |
-|------|-------|-------------|
-| session-start | Session startup | Injects INDEX.md into context |
-| subagent-start | Agent spawn | Injects relevant domain doc |
-| post-tool-use | File write/edit | Logs file changes |
-| post-compact | Context compaction | Re-injects INDEX.md |
-| stop | Session end | Regenerates map.md if changed |
-| subagent-stop | Agent completes | Logs agent result summary |
+**Tier 3 (Cold):** Three MCP tools for on-demand deep dives — search symbols, read domain docs, check sync status. Only loaded when explicitly needed.
+
+## What Stays In Sync (And How)
+
+You don't maintain any of this. Seven hooks run automatically:
+
+| What happens | What codetographer does |
+|---|---|
+| Session starts, `/clear`, or compaction | Injects INDEX.md into context |
+| You edit a file | Logs the change + domain to changes.md |
+| A subagent spawns | Injects the relevant domain doc |
+| You commit code | Logs the commit, hash, and affected domains |
+| A subagent finishes | Logs its result summary |
+| Session ends | Regenerates map.md if anything changed |
+
+The tree-sitter map regeneration is incremental — only re-parses files that changed since the last run, ranked by PageRank so the most-referenced files appear first.
+
+## Installation
+
+```bash
+# From a marketplace
+claude plugin install codetographer@sakib-plugins
+
+# Or point directly at the plugin
+claude --plugin-dir /path/to/codetographer
+```
+
+Then open any project and run `/codetographer` to start the wizard.
 
 ## MCP Tools
 
-The codetographer MCP server provides 3 tools:
+Available in any session where the plugin is active:
 
-- `codetographer_search(query, limit?)` — Search function/class names across the codebase
-- `codetographer_domain(domain, section?)` — Read domain documentation
-- `codetographer_status()` — Check sync status and map age
+- `codetographer_search(query)` — find functions, classes, and types by name
+- `codetographer_domain(domain, section?)` — read domain documentation
+- `codetographer_status()` — check map age, symbol count, domain staleness
 
 ## Dashboard
 
-Run `/codetographer` in a project that's already set up to access the dashboard:
-- Sync a domain (re-explore and update)
+Run `/codetographer` in a project that's already set up:
+
+- Sync a domain (re-explore after major changes)
 - Add a new domain
 - Force-refresh the tree-sitter map
 - View status
+- Uninstall
 
-## Uninstall
+## Language Support
 
-From the dashboard, select "Uninstall", or:
-
-```bash
-rm -rf docs/codetographer/
-claude plugin remove codetographer
-```
+Tree-sitter parsing covers 16 languages: TypeScript, JavaScript, Python, Go, Rust, Java, C, C++, Ruby, PHP, Swift, Kotlin, C#, Scala, Elixir, and Lua. Uses WASM grammars — no native compilation required for the parser.
 
 ## Cross-Platform
 
-Codetographer runs on Windows and Linux. All generated paths use forward slashes. All file writes use LF line endings. The `better-sqlite3` tag cache falls back to a JSON file cache if native compilation is unavailable.
-
-## Technical Details
-
-- **Tree-sitter**: WASM-based grammar parsing (16 languages: TypeScript, JavaScript, Python, Go, Rust, Java, C, C++, Ruby, PHP, Swift, Kotlin, C#, Scala, Elixir, Lua)
-- **PageRank**: File relevance ranking via symbol reference graph
-- **Token budget**: Configurable (default 5000) — stops adding files when budget reached
-- **Incremental updates**: Only re-parses files changed since last run
+Works on Windows and Linux. Forward slashes everywhere, LF line endings, atomic file writes with Windows EPERM handling. The SQLite tag cache falls back to JSON if native binaries aren't available.
