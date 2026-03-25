@@ -127,4 +127,17 @@ if (existsSync(distMapSrc)) {
   console.log('copied+patched: dist/treesitter-map.js → scripts/treesitter-map.js');
 }
 
+// Copy scripts/sanity.js
+const distSanitySrc = join(distDir, 'sanity.js');
+if (existsSync(distSanitySrc)) {
+  const content = readFileSync(distSanitySrc, 'utf-8');
+  // scripts/sanity.js imports './map-generator.js', './atomic-write.js', './hooks/lib/recent-activity.js'
+  // When moved to scripts/, '../hooks/dist/' is the right location.
+  // The single regex handles both './map-generator.js' and './hooks/lib/recent-activity.js'
+  // because both match /from '\.\/([^']+)'/ and become '../hooks/dist/<rest>'
+  const patched = content.replace(/from '\.\/([^']+)'/g, "from '../hooks/dist/$1'");
+  writeFileSync(join(projectRoot, 'scripts', 'sanity.js'), patched);
+  console.log('copied+patched: dist/sanity.js → scripts/sanity.js');
+}
+
 console.log('Build complete.');

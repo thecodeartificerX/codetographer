@@ -21,7 +21,7 @@ test.after(() => {
   try { rmSync(tmpDir, { recursive: true }); } catch { /* ignore */ }
 });
 
-test('session-start exits silently without INDEX.md', () => {
+test('session-start exits silently or outputs sanity warning without INDEX.md', () => {
   const result = spawnSync(process.execPath, [hookScript], {
     input: JSON.stringify({ event: 'SessionStart', hook_event_name: 'startup' }),
     env: { ...process.env, CLAUDE_PROJECT_DIR: join(tmpDir, 'empty') },
@@ -29,7 +29,19 @@ test('session-start exits silently without INDEX.md', () => {
   });
 
   assert.equal(result.status, 0, `Should exit 0, got ${result.status}. stderr: ${result.stderr?.toString()}`);
-  assert.equal(result.stdout?.toString().trim(), '', 'Should produce no stdout when INDEX.md missing');
+
+  // With sanity check integration, the hook may output a sanity warning even without INDEX.md.
+  // Accept either empty stdout (no issues) or valid JSON with additionalContext (sanity warning).
+  const stdout = result.stdout?.toString().trim() ?? '';
+  if (stdout.length > 0) {
+    let parsed;
+    try {
+      parsed = JSON.parse(stdout);
+    } catch {
+      assert.fail(`If stdout is non-empty, it must be valid JSON, got: ${stdout}`);
+    }
+    assert.ok(parsed.hookSpecificOutput?.additionalContext !== undefined, 'Non-empty stdout must have hookSpecificOutput.additionalContext');
+  }
 });
 
 test('session-start outputs additionalContext when INDEX.md exists', () => {

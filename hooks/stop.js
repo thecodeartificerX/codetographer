@@ -3,6 +3,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { generateMap } from './dist/map-generator.js';
 import { atomicWrite } from './dist/atomic-write.js';
+import { updateRecentActivity } from './lib/recent-activity.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 function getProjectRoot() {
     return process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
@@ -29,34 +30,6 @@ function hasChangesNewerThanMap(changesPath, mapPath) {
     if (!existsSync(mapPath))
         return true;
     return changesMtime > mapMtime;
-}
-function updateRecentActivity(indexPath, changes) {
-    if (!existsSync(indexPath) || changes.length === 0)
-        return;
-    try {
-        let content = readFileSync(indexPath, 'utf-8');
-        const section = '## Recent Activity';
-        const sectionIdx = content.indexOf(section);
-        const newSection = section + '\n\n' +
-            changes.slice(-5).map(c => `- ${c}`).join('\n') + '\n';
-        let updated;
-        if (sectionIdx >= 0) {
-            const nextSection = content.indexOf('\n## ', sectionIdx + 1);
-            if (nextSection >= 0) {
-                updated = content.slice(0, sectionIdx) + newSection + '\n' + content.slice(nextSection);
-            }
-            else {
-                updated = content.slice(0, sectionIdx) + newSection;
-            }
-        }
-        else {
-            updated = content + '\n' + newSection;
-        }
-        if (updated !== content) {
-            atomicWrite(indexPath, updated);
-        }
-    }
-    catch { /* ignore */ }
 }
 async function main() {
     const projectDir = getProjectRoot();
