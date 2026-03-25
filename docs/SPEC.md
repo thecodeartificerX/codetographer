@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-25
 **Status:** Ready for execution
-**Project Root:** `F:/Tools/Projects/cc-plugins/codetographer/`
+**Repository:** [github.com/thecodeartificerX/codetographer](https://github.com/thecodeartificerX/codetographer)
 **Design Spec:** See `2026-03-25-codetographer-design.md` for full architectural context, document formats, and cross-platform details.
 
 **Problem:** AI coding agents waste tokens re-exploring codebases from scratch. Codetographer is a Claude Code plugin that maps any codebase via tree-sitter + agentic exploration, generates a three-tier documentation structure (INDEX.md routing table → domain docs → structural map), and auto-syncs via hooks.

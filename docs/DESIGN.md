@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-25
 **Status:** Draft
-**Project Root:** `F:/Tools/Projects/cc-plugins/codetographer/`
+**Repository:** [github.com/thecodeartificerX/codetographer](https://github.com/thecodeartificerX/codetographer)
 
 ## Overview
 

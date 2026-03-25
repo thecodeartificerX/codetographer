@@ -1,4 +1,6 @@
 node_modules/
 dist/
+hooks/dist/
 *.js.map
 tests/fixtures/*/node_modules/
+.superpowers/

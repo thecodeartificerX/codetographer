@@ -22,13 +22,18 @@ No lint script exists; TypeScript strict mode is the static checking mechanism.
 node --import tsx/esm --test tests/pagerank.test.ts
 ```
 
+**Run all tests explicitly (Windows):** The `npm test` glob patterns may return 0 tests on Windows bash. List files explicitly:
+```bash
+node --import tsx/esm --test tests/sanity.test.ts tests/pagerank.test.ts tests/tag-extractor.test.ts tests/map-generator.test.ts tests/hooks/post-tool-use.test.ts tests/hooks/session-start.test.ts tests/hooks/post-commit.test.ts tests/mcp/server.test.ts
+```
+
 ## Build System Gotcha: Import Path Patching
 
 TypeScript compiles `src/` → `dist/`, but runtime hooks live in `hooks/`, MCP server in `mcp/`, and CLI in `scripts/`. The `scripts/copy-hooks.js` post-build step:
 1. Mirrors the entire `dist/` tree into `hooks/dist/`
 2. Copies hook entry points to `hooks/*.js` and patches `../` imports to `./dist/`
 3. Patches `hooks/lib/*.js` and `mcp/server.js` similarly
-4. Copies `scripts/treesitter-map.js`
+4. Copies `scripts/treesitter-map.js` and `scripts/sanity.js`
 
 **Always run `npm run build:hooks`** (not just `npm run build`) when testing hooks, MCP tools, or the CLI end-to-end. Plain `tsc` output in `dist/` won't be picked up by the runtime entry points.
 
@@ -48,7 +53,7 @@ All 6 hooks are standalone Node.js scripts in `hooks/` that read JSON from stdin
 
 | Hook | Key behavior |
 |------|-------------|
-| `session-start` | Injects INDEX.md + changes.md tail; triggers lazy dep install if package.json checksum changed |
+| `session-start` | Injects INDEX.md + changes.md tail; triggers lazy dep install if package.json checksum changed; runs sanity check with auto-fix |
 | `subagent-start` | Parses transcript JSONL to extract agent prompt, matches domain, injects domain doc or INDEX.md |
 | `post-tool-use` | Logs Write/Edit file paths + domain to changes.md |
 | `post-compact` | Re-injects INDEX.md after context compaction |
@@ -61,11 +66,22 @@ All 6 hooks are standalone Node.js scripts in `hooks/` that read JSON from stdin
 
 ### Skill & Agent Orchestration
 
-`/codetographer` skill entry point (`skills/codetographer/SKILL.md`) has two modes:
+**`/codetographer`** skill entry point (`skills/codetographer/SKILL.md`) has two modes:
 - **Wizard** (no INDEX.md): detect → discover → parallel `domain-explorer` agents → `structural-scanner` agent → assemble INDEX.md
 - **Dashboard** (INDEX.md exists): sync/add domains, force-refresh map, view status
 
 Agent specs in `agents/` define system prompts for sub-agents dispatched by the skill.
+
+**`/sanity`** skill (`skills/sanity/SKILL.md`): runs full diagnostic, displays check results, dispatches agents to fix stale domain docs.
+
+### Sanity Check System
+
+`src/sanity.ts` provides 17 discrete diagnostic checks with optional auto-fix via `runSanityCheck(options) → SanityReport`. Three integration points:
+- **session-start hook**: runs `{ fix: true, skipExpensive: true, quiet: true }` on every session
+- **CLI**: `scripts/sanity.js` (built via copy-hooks.js from dist/sanity.js) — supports `--fix`, `--json`, `--quiet`, `--skip-expensive`
+- **`/sanity` skill** (`skills/sanity/SKILL.md`): full diagnostic with domain agent dispatch for stale docs
+
+Shared utilities live in `src/hooks/lib/` — e.g., `recent-activity.ts` (used by both `stop.ts` and `sanity.ts`).
 
 ## Key Conventions
 

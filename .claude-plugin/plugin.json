@@ -2,7 +2,7 @@
   "name": "codetographer",
   "version": "1.0.0",
   "description": "Three-tier codebase navigation via tree-sitter mapping, agentic exploration, and hook-powered auto-sync",
-  "author": { "name": "Sakib" },
+  "author": { "name": "Sakib Rahman", "url": "https://github.com/thecodeartificerX" },
   "mcpServers": {
     "codetographer": {
       "command": "node",

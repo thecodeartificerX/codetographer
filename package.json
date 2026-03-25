@@ -2,7 +2,27 @@
   "name": "codetographer",
   "version": "1.0.0",
   "description": "Three-tier codebase navigation via tree-sitter mapping, agentic exploration, and hook-powered auto-sync",
+  "license": "MIT",
+  "author": "Sakib Rahman (https://github.com/thecodeartificerX)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thecodeartificerX/codetographer.git"
+  },
+  "homepage": "https://github.com/thecodeartificerX/codetographer#readme",
+  "keywords": [
+    "claude-code",
+    "claude-code-plugin",
+    "codebase-navigation",
+    "tree-sitter",
+    "pagerank",
+    "mcp",
+    "ai-coding",
+    "context-injection"
+  ],
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "build": "tsc",
     "build:hooks": "tsc && node scripts/copy-hooks.js",

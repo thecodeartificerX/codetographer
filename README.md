@@ -53,10 +53,13 @@ The tree-sitter map regeneration is incremental — only re-parses files that ch
 ## Installation
 
 ```bash
-# From a marketplace
-claude plugin install codetographer@sakib-plugins
+# Clone and install as a local plugin
+git clone https://github.com/thecodeartificerX/codetographer.git
+cd codetographer
+npm install
+npm run build:hooks
 
-# Or point directly at the plugin
+# Then point Claude Code at it
 claude --plugin-dir /path/to/codetographer
 ```
 
@@ -87,3 +90,21 @@ Tree-sitter parsing covers 16 languages: TypeScript, JavaScript, Python, Go, Rus
 ## Cross-Platform
 
 Works on Windows and Linux. Forward slashes everywhere, LF line endings, atomic file writes with Windows EPERM handling. The SQLite tag cache falls back to JSON if native binaries aren't available.
+
+## Diagnostics
+
+Run `/sanity` to check plugin health — verifies docs structure, hook configuration, domain freshness, and auto-repairs common issues. Also runs automatically at session start.
+
+## Contributing
+
+Contributions are welcome! Please open an issue or submit a pull request.
+
+```bash
+npm install          # install dependencies
+npm run build:hooks  # compile TypeScript + patch hook imports
+npm test             # run the test suite
+```
+
+## License
+
+[MIT](LICENSE)
