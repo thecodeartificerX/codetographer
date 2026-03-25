@@ -69,7 +69,8 @@ async function main(): Promise<void> {
       const recentLines = changesContent
         .split('\n')
         .filter(l => l.startsWith('- ') && !l.startsWith('<!-- '))
-        .slice(-5);
+        .slice(-5)
+        .map(l => l.slice(2).trim());
       updateRecentActivity(indexPath, recentLines);
     }
   } catch (err) {

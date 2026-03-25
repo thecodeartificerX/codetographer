@@ -13,7 +13,7 @@ async function main() {
     const toolInput = inputData['tool_input'];
     const command = toolInput?.['command'] ?? '';
     // Fast exit for non-commit commands — this fires on every Bash call
-    if (!command.includes('git commit')) {
+    if (!/\bgit\s+commit\b/.test(command)) {
         process.exit(0);
     }
     const projectDir = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();

@@ -137,6 +137,7 @@ function searchTags(query: string, limit = 10): Array<{
 }
 
 function readDomainDoc(domain: string, section?: string): string | null {
+  if (/[/\\]/.test(domain) || domain.includes('..')) return null;
   const docPath = join(DOMAINS_DIR, `${domain}.md`);
   if (!existsSync(docPath)) return null;
   const content = readFileSync(docPath, 'utf-8');

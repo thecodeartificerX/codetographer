@@ -37,7 +37,7 @@ docs/codetographer/
 
 ## What Stays In Sync (And How)
 
-You don't maintain any of this. Seven hooks run automatically:
+You don't maintain any of this. Five hooks run automatically:
 
 | What happens | What codetographer does |
 |---|---|
@@ -45,7 +45,6 @@ You don't maintain any of this. Seven hooks run automatically:
 | You edit a file | Logs the change + domain to changes.md |
 | A subagent spawns | Injects the relevant domain doc |
 | You commit code | Logs the commit, hash, and affected domains |
-| A subagent finishes | Logs its result summary |
 | Session ends | Regenerates map.md if anything changed |
 
 The tree-sitter map regeneration is incremental — only re-parses files that changed since the last run, ranked by PageRank so the most-referenced files appear first.

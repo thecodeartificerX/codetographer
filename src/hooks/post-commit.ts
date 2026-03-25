@@ -15,7 +15,7 @@ async function main(): Promise<void> {
   const command = (toolInput?.['command'] as string | undefined) ?? '';
 
   // Fast exit for non-commit commands — this fires on every Bash call
-  if (!command.includes('git commit')) {
+  if (!/\bgit\s+commit\b/.test(command)) {
     process.exit(0);
   }
 

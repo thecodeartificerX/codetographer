@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, mkdirSync, statSync, copyFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, readdirSync, mkdirSync, statSync } from 'fs';
 import { join } from 'path';
 import { spawn } from 'child_process';
 import { generateMap } from './map-generator.js';
@@ -28,7 +28,7 @@ export interface SanityCheckResult {
   name: string;
   status: 'pass' | 'fixed' | 'warn' | 'fail';
   message: string;
-  /** Aggregated across Check 5 (missing domains) and Check 10 (stale domains) */
+  /** Aggregated across Check 8 (missing domains) and Check 10 (stale domains) */
   staleDomains?: string[];
 }
 
@@ -659,6 +659,25 @@ function checkRecentActivity(projectDir: string, fix: boolean): SanityCheckResul
 
     const last5 = entries.slice(-5);
 
+    // Check if INDEX.md Recent Activity is already in sync
+    let alreadySynced = false;
+    try {
+      const indexContent = readFileSync(indexPath, 'utf-8');
+      const sectionHeader = '## Recent Activity';
+      const sectionIdx = indexContent.indexOf(sectionHeader);
+      if (sectionIdx >= 0) {
+        const nextSection = indexContent.indexOf('\n## ', sectionIdx + 1);
+        const sectionText = nextSection >= 0
+          ? indexContent.slice(sectionIdx, nextSection)
+          : indexContent.slice(sectionIdx);
+        alreadySynced = last5.every(entry => sectionText.includes(`- ${entry}`));
+      }
+    } catch { /* if we can't read, assume not synced */ }
+
+    if (alreadySynced) {
+      return { name, status: 'pass', message: 'INDEX.md Recent Activity is up to date' };
+    }
+
     if (fix) {
       updateRecentActivity(indexPath, last5);
       return { name, status: 'fixed', message: 'INDEX.md Recent Activity rebuilt from changes.md' };
@@ -739,23 +758,23 @@ export async function runSanityCheck(options: SanityOptions): Promise<SanityRepo
     return buildReport(checks);
   }
 
-  // Check 4: changes.md (track if just created)
+  // Check 3: changes.md (track if just created)
   const { result: changesMdResult, justCreated: justCreatedChangesMd } = checkChangesMd(projectDir, fix);
   checks.push(changesMdResult);
 
-  // Check 3: map.md
+  // Check 4: map.md
   checks.push(await checkMapMd(projectDir, pluginData, fix, skipExpensive, nodeModulesAvailable));
 
-  // Check 6: CLAUDE.md section
+  // Check 5: CLAUDE.md section
   checks.push(checkClaudeMd(projectDir, fix));
 
-  // Check 7: hookify commit-before-stop
+  // Check 6: hookify commit-before-stop
   checks.push(checkHookifyRule(projectDir, pluginRoot, 'commit-before-stop', COMMIT_BEFORE_STOP_TEMPLATE, fix));
 
-  // Check 8: hookify use-codetographer-docs
+  // Check 7: hookify use-codetographer-docs
   checks.push(checkHookifyRule(projectDir, pluginRoot, 'use-codetographer-docs', USE_CODETOGRAPHER_DOCS_TEMPLATE, fix));
 
-  // Check 5: Domain alignment
+  // Check 8: Domain alignment
   checks.push(checkDomainAlignment(projectDir));
 
   // ── Phase 3: Staleness detection ────────────────────────────────────────
@@ -793,12 +812,7 @@ function formatReport(report: SanityReport, quiet: boolean): string {
       default:      label = '      ';
     }
 
-    let msg = check.message;
-    if (check.staleDomains && check.staleDomains.length > 0) {
-      msg += ` — ${check.staleDomains.length} stale domains: ${check.staleDomains.join(', ')}`;
-    }
-
-    lines.push(` ${label}  ${msg}`);
+    lines.push(` ${label}  ${check.message}`);
   }
 
   lines.push('');

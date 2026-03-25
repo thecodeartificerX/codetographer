@@ -1,12 +1,11 @@
 import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
-import { createReadStream } from 'fs';
 import { matchDomains, getDomainDocPath } from './lib/domain-matcher.js';
 import { loadContext } from './lib/context-loader.js';
 
 const SKIP_AGENT_TYPES = new Set(['grader', 'comparator', 'validator', 'judge']);
 
-async function readLastLines(filePath: string, lineCount: number): Promise<string[]> {
+function readLastLines(filePath: string, lineCount: number): string[] {
   if (!existsSync(filePath)) return [];
   try {
     const content = readFileSync(filePath, 'utf-8');
@@ -37,7 +36,7 @@ async function main(): Promise<void> {
   // Try to extract prompt from transcript JSONL
   if (transcriptPath && existsSync(transcriptPath)) {
     try {
-      const lastLines = await readLastLines(transcriptPath, 50);
+      const lastLines = readLastLines(transcriptPath, 50);
       for (let i = lastLines.length - 1; i >= 0; i--) {
         const line = lastLines[i];
         if (!line.trim()) continue;

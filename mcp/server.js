@@ -136,6 +136,8 @@ function searchTags(query, limit = 10) {
         .map(({ score: _s, ...r }) => r);
 }
 function readDomainDoc(domain, section) {
+    if (/[/\\]/.test(domain) || domain.includes('..'))
+        return null;
     const docPath = join(DOMAINS_DIR, `${domain}.md`);
     if (!existsSync(docPath))
         return null;

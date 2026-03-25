@@ -18,7 +18,7 @@
  * so relative imports resolve correctly.
  */
 
-import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, existsSync, copyFileSync } from 'fs';
+import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, existsSync, copyFileSync, rmSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -53,17 +53,7 @@ ensureDir(mcpDir);
 // Copy the entire dist/ tree into hooks/dist/
 // This preserves all relative imports from hook files
 const hooksDist = join(hooksDir, 'dist');
-if (existsSync(hooksDist)) {
-  // Remove old dist copy
-  for (const entry of readdirSync(hooksDist)) {
-    const p = join(hooksDist, entry);
-    if (statSync(p).isDirectory()) {
-      copyDir(join(distDir, entry), p);
-    } else {
-      copyFileSync(join(distDir, entry), p);
-    }
-  }
-}
+rmSync(hooksDist, { recursive: true, force: true });
 copyDir(distDir, hooksDist);
 console.log('copied: dist/ → hooks/dist/');
 
