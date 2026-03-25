@@ -108,7 +108,6 @@ const HOOK_SCRIPTS = [
   'post-tool-use.js',
   'post-compact.js',
   'stop.js',
-  'subagent-stop.js',
 ];
 
 // ---------------------------------------------------------------------------

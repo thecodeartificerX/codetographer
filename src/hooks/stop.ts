@@ -30,6 +30,8 @@ function hasChangesNewerThanMap(changesPath: string, mapPath: string): boolean {
   // If changes.md doesn't exist or map.md doesn't exist, run anyway
   if (!existsSync(changesPath)) return false;
   if (!existsSync(mapPath)) return true;
+  // Skip if map was regenerated within the last 60 seconds (e.g. by /sanity)
+  if (Date.now() - mapMtime < 60_000) return false;
   return changesMtime > mapMtime;
 }
 

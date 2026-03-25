@@ -125,7 +125,7 @@ After all agents have written their domain docs, re-run the check:
 node $CLAUDE_PLUGIN_ROOT/scripts/sanity.js --project-dir $CLAUDE_PROJECT_DIR --json
 ```
 
-**If map.md is stale in the re-check** (expected — agent writes trigger `post-tool-use` hooks that update `changes.md`), run map regeneration:
+**If map.md is stale in the re-check**, run map regeneration:
 
 ```bash
 node $CLAUDE_PLUGIN_ROOT/scripts/treesitter-map.js \

@@ -64,7 +64,6 @@ const HOOK_SCRIPTS = [
     'post-tool-use.js',
     'post-compact.js',
     'stop.js',
-    'subagent-stop.js',
 ];
 // ---------------------------------------------------------------------------
 // Domain table parsing (same approach as domain-matcher.ts and mcp/server.js)

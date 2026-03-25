@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Codetographer is a Claude Code plugin that generates three-tier navigational documentation for codebases: INDEX.md (routing table), domains/*.md (deep-dive docs), and map.md (tree-sitter structural map with PageRank). Output lives in `docs/codetographer/` of the target project. The plugin auto-syncs via 6 hooks and exposes 3 MCP tools.
+Codetographer is a Claude Code plugin that generates three-tier navigational documentation for codebases: INDEX.md (routing table), domains/*.md (deep-dive docs), and map.md (tree-sitter structural map with PageRank). Output lives in `docs/codetographer/` of the target project. The plugin auto-syncs via 5 hooks and exposes 3 MCP tools.
 
 ## Build & Test Commands
 
@@ -49,16 +49,15 @@ file-discovery.ts → tag-extractor.ts → tag-cache.ts → pagerank.ts → map-
 
 ### Hook System
 
-All 6 hooks are standalone Node.js scripts in `hooks/` that read JSON from stdin and write JSON to stdout (Claude Code hook protocol). They use `CLAUDE_PROJECT_DIR` env var to locate the target project. Context-injecting hooks output via `hookSpecificOutput.additionalContext`.
+All 5 hooks are standalone Node.js scripts in `hooks/` that read JSON from stdin and write JSON to stdout (Claude Code hook protocol). They use `CLAUDE_PROJECT_DIR` env var to locate the target project. Context-injecting hooks output via `hookSpecificOutput.additionalContext`.
 
 | Hook | Key behavior |
 |------|-------------|
-| `session-start` | Injects INDEX.md + changes.md tail; triggers lazy dep install if package.json checksum changed; runs sanity check with auto-fix |
+| `session-start` | Injects INDEX.md + changes.md tail; runs sanity check with auto-fix (which handles dep install) |
 | `subagent-start` | Parses transcript JSONL to extract agent prompt, matches domain, injects domain doc or INDEX.md |
 | `post-tool-use` | Logs Write/Edit file paths + domain to changes.md |
 | `post-compact` | Re-injects INDEX.md after context compaction |
-| `stop` | Regenerates map.md if changes.md is newer; updates INDEX.md Recent Activity (60s timeout) |
-| `subagent-stop` | Logs first sentence of agent result to changes.md |
+| `stop` | Regenerates map.md if changes.md is newer (skips if map was regenerated within 60s); updates INDEX.md Recent Activity |
 
 ### MCP Server
 
@@ -68,7 +67,7 @@ All 6 hooks are standalone Node.js scripts in `hooks/` that read JSON from stdin
 
 **`/codetographer`** skill entry point (`skills/codetographer/SKILL.md`) has two modes:
 - **Wizard** (no INDEX.md): detect → discover → parallel `domain-explorer` agents → `structural-scanner` agent → assemble INDEX.md
-- **Dashboard** (INDEX.md exists): sync/add domains, force-refresh map, view status
+- **Dashboard** (INDEX.md exists): sync/add domains, force-refresh map, view status, run health check (sanity)
 
 Agent specs in `agents/` define system prompts for sub-agents dispatched by the skill.
 
@@ -95,4 +94,4 @@ Shared utilities live in `src/hooks/lib/` — e.g., `recent-activity.ts` (used b
 
 - **Plugin env vars**: Hooks expect `CLAUDE_PLUGIN_ROOT` (plugin install dir) and `CLAUDE_PLUGIN_DATA` (writable data dir with node_modules) set by the Claude Code harness. When debugging hooks manually, set these yourself.
 - **`.codetographignore`**: `file-discovery.ts` respects a `.codetographignore` file (same syntax as `.gitignore`) for excluding paths from the tree-sitter map in target projects.
-- **Lazy dep install**: `session-start` compares package.json checksums between `CLAUDE_PLUGIN_ROOT` and `CLAUDE_PLUGIN_DATA`; on mismatch it spawns `scripts/install-deps.js` detached. First session after a plugin update installs deps non-blocking.
+- **Lazy dep install**: Handled by sanity check 15/16 (`checkNodeModules`) during session-start. Compares package.json checksums between `CLAUDE_PLUGIN_ROOT` and `CLAUDE_PLUGIN_DATA`; on mismatch it spawns `scripts/install-deps.js` detached.

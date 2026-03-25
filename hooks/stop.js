@@ -29,6 +29,9 @@ function hasChangesNewerThanMap(changesPath, mapPath) {
         return false;
     if (!existsSync(mapPath))
         return true;
+    // Skip if map was regenerated within the last 60 seconds (e.g. by /sanity)
+    if (Date.now() - mapMtime < 60_000)
+        return false;
     return changesMtime > mapMtime;
 }
 async function main() {

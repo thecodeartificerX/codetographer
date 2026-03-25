@@ -44,13 +44,15 @@ What would you like to do?
 2. Add a new domain
 3. Force-refresh the tree-sitter map
 4. View status (map age, domain staleness)
-5. Uninstall (remove docs/codetographer/)
+5. Run health check (sanity diagnostics + auto-repair)
+6. Uninstall (remove docs/codetographer/)
 ```
 
 - **Sync domain**: Dispatch `sync-agent` for the selected domain
 - **Add domain**: Run mini-wizard for just the new domain
 - **Force-refresh**: Run `structural-scanner` agent with --budget 5000
 - **View status**: Call `codetographer_status` MCP tool
+- **Health check**: Run the full `/sanity` flow — see `skills/sanity/SKILL.md` for the complete procedure
 - **Uninstall**: Confirm, then remove `docs/codetographer/` directory
 
 ## Key Files
